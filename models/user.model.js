@@ -28,10 +28,10 @@ const userSchema = new Schema(
       index: true,
     },
     avatar: {
-      type: String,
+      type: String, // clourdinary url
       required: true,
     },
-    coverImage: String,
+    coverImage: String, // clourdinary url
     password: {
       type: String,
       required: [true, "Password is required"],
@@ -41,7 +41,9 @@ const userSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "Video",
     },
-    refreshToken: String,
+    refreshToken: {
+      type: String
+  },
   },
   {
     timestamps: true,
@@ -50,7 +52,7 @@ const userSchema = new Schema(
 
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-  this.password =  await bcrypt.hash(this.password, 10);
+  this.password = await bcrypt.hash(this.password, 10);
   next();
 });
 
@@ -59,7 +61,7 @@ userSchema.methods.isPasswordCorrect = async function (password) {
 };
 
 userSchema.methods.generateAccessToken = function () {
-  jwt.sign(
+  return jwt.sign(
     {
       _id: this._id,
       username: this.username,
@@ -74,7 +76,7 @@ userSchema.methods.generateAccessToken = function () {
 };
 
 userSchema.methods.generateRefreshToken = function () {
-  jwt.sign(
+  return jwt.sign(
     {
       _id: this._id,
     },
