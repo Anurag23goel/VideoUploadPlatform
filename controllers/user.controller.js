@@ -5,7 +5,7 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
-
+import { set } from "mongoose";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -251,7 +251,7 @@ const updateCurrentPassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
 
   const user = await User.findById(req.user?._id); //we are able to access user._id due to middleware which provides req.user
-  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
 
   if (!isPasswordCorrect) {
     throw new ApiError(400, "Password Incorrect");
@@ -260,7 +260,7 @@ const updateCurrentPassword = asyncHandler(async (req, res) => {
   user.password = newPassword;
   await user.save({ validateBeforeSave: false });
   // console.log(user.password, '\n');
-  
+
   // const passwordToCompare = req.body.passwordToCompare;
   // bcrypt.compare(passwordToCompare, user.password)
   // .then(match => {
@@ -280,16 +280,82 @@ const updateCurrentPassword = asyncHandler(async (req, res) => {
 });
 
 const getCurrentuser = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user?._id).select(
+    "-password -refreshToken -avatar -coverImage"
+  );
 
-    const user = await User.findById(req.user?._id).select(
-      "-password -refreshToken -avatar -coverImage");
+  if (!user) {
+    throw new ApiError(400, "Please Login First");
+  }
 
-    if(!user)
+  return res.status(200).json(new ApiResponse(400, { user }, ""));
+});
+
+const updateAccountDetails = asyncHandler(async (req, res) => {
+  const { fullname, email } = req.body;
+
+  if (!fullname || !email) {
+    throw new ApiError(400, "All fields are required");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
     {
-      throw new ApiError(400, "Please Login First")
+      $set: {
+        fullname, //both are different ways of doing same thing
+        email: email, //both are different ways of doing same thing
+      },
+    },
+    {
+      new: true,
     }
+  ).select("-password");
 
-    return res.status(200).json(new ApiResponse(400, {user} , ""))
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, { user }, "Account details updated successfully")
+    );
+});
 
-})
-export { registerUser, loginUser, logoutUser, refreshAccessToken, updateCurrentPassword, getCurrentuser };
+const updateAvatarUrl = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file?.path;
+  console.log(avatarLocalPath);
+
+  if (!avatarLocalPath) {
+    throw new ApiError(400, "Avatar File Missing");
+  }
+
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+
+  if (!avatar.url) {
+    throw new ApiError(400, "Error while uploading on Cloudinary");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        avatar: avatar.url,
+      },
+    },
+    { new: true }
+  );
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return res.status(200).json(new ApiResponse(200, { newAvatarURL: user.avatar }, "Avatar Updated Successfully"));
+});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  updateCurrentPassword,
+  getCurrentuser,
+  updateAccountDetails,
+  updateAvatarUrl
+};
