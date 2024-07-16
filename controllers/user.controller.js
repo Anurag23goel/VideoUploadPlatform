@@ -155,8 +155,8 @@ const loginUser = asyncHandler(async (req, res) => {
         200,
         {
           user: loggedInUser,
-          accessToken,
-          refreshToken,
+          // accessToken,
+          // refreshToken,
         },
         "User logged in successfully"
       )
@@ -279,4 +279,17 @@ const updateCurrentPassword = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "Password Changed Successfully"));
 });
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken, updateCurrentPassword };
+const getCurrentuser = asyncHandler(async (req, res) => {
+
+    const user = await User.findById(req.user?._id).select(
+      "-password -refreshToken -avatar -coverImage");
+
+    if(!user)
+    {
+      throw new ApiError(400, "Please Login First")
+    }
+
+    return res.status(200).json(new ApiResponse(400, {user} , ""))
+
+})
+export { registerUser, loginUser, logoutUser, refreshAccessToken, updateCurrentPassword, getCurrentuser };
