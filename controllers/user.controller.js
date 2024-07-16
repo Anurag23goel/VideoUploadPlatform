@@ -4,6 +4,8 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
+
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -26,8 +28,11 @@ const generateAccessAndRefreshToken = async (userId) => {
 
     return { accessToken, refreshToken };
   } catch (error) {
-    console.error('Error generating tokens:', error);
-    throw new ApiError(500, "Something went wrong while generating access and refresh tokens");
+    console.error("Error generating tokens:", error);
+    throw new ApiError(
+      500,
+      "Something went wrong while generating access and refresh tokens"
+    );
   }
 };
 
@@ -186,7 +191,8 @@ const logoutUser = asyncHandler(async (req, res) => {
 });
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
-  const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
+  const incomingRefreshToken =
+    req.cookies.refreshToken || req.body.refreshToken;
 
   // console.log('Incoming Refresh Token:', incomingRefreshToken);
 
@@ -217,7 +223,9 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     };
 
     // Generating new Access and Refresh Tokens
-    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id);
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+      user._id
+    );
 
     // console.log('Access Token:', accessToken);
     // console.log('New Refresh Token:', refreshToken);
@@ -234,9 +242,41 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
         )
       );
   } catch (error) {
-    console.error('Error refreshing access token:', error);
+    console.error("Error refreshing access token:", error);
     throw new ApiError(401, error?.message || "Invalid refresh token");
   }
 });
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+const updateCurrentPassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+
+  const user = await User.findById(req.user?._id); //we are able to access user._id due to middleware which provides req.user
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
+
+  if (!isPasswordCorrect) {
+    throw new ApiError(400, "Password Incorrect");
+  }
+
+  user.password = newPassword;
+  await user.save({ validateBeforeSave: false });
+  // console.log(user.password, '\n');
+  
+  // const passwordToCompare = req.body.passwordToCompare;
+  // bcrypt.compare(passwordToCompare, user.password)
+  // .then(match => {
+  //   if (match) {
+  //     console.log('Password matches!');
+  //   } else {
+  //     console.log('Password does not match!');
+  //   }
+  // })
+  // .catch(error => {
+  //   console.error('Error comparing passwords:', error);
+  // });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password Changed Successfully"));
+});
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken, updateCurrentPassword };
