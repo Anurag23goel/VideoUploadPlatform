@@ -1,11 +1,9 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { uploadOnCloudinary ,deleteFromCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
-import { set } from "mongoose";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -35,6 +33,13 @@ const generateAccessAndRefreshToken = async (userId) => {
     );
   }
 };
+
+// const extractPublicId = (url) => {
+//   const parts = url.split('/');
+//   const lastPart = parts[parts.length - 1];
+//   const publicIdWithExtension = lastPart.split('.')[0];
+//   return parts.slice(-2, -1)[0] + '/' + publicIdWithExtension; // Assuming the publicId is stored in the last two parts
+// };
 
 const registerUser = asyncHandler(async (req, res) => {
   // STEP-1 : get user details from frontend
@@ -320,31 +325,30 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 
 const updateAvatarUrl = asyncHandler(async (req, res) => {
   const avatarLocalPath = req.file?.path;
-  console.log(avatarLocalPath);
+  // console.log(avatarLocalPath);
 
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar File Missing");
   }
 
-  const avatar = await uploadOnCloudinary(avatarLocalPath);
-
-  if (!avatar.url) {
-    throw new ApiError(400, "Error while uploading on Cloudinary");
-  }
-
-  const user = await User.findByIdAndUpdate(
-    req.user?._id,
-    {
-      $set: {
-        avatar: avatar.url,
-      },
-    },
-    { new: true }
-  );
+  const user = await User.findById(req.user?._id);
 
   if (!user) {
     throw new ApiError(404, "User not found");
   }
+
+  const currentAvatarUrl = user.avatar;
+
+  const newAvatar = await uploadOnCloudinary(avatarLocalPath);
+
+  if (!newAvatar.url) {
+    throw new ApiError(400, "Error while uploading on Cloudinary");
+  }
+
+  user.avatar = newAvatar.url;
+  await user.save();
+
+   await deleteFromCloudinary(currentAvatarUrl);
 
   return res.status(200).json(new ApiResponse(200, { newAvatarURL: user.avatar }, "Avatar Updated Successfully"));
 });
@@ -357,5 +361,5 @@ export {
   updateCurrentPassword,
   getCurrentuser,
   updateAccountDetails,
-  updateAvatarUrl
+  updateAvatarUrl,
 };

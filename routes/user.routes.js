@@ -11,7 +11,6 @@ import {
 } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = Router();
 
@@ -37,6 +36,6 @@ router.route("/refresh-token").post(refreshAccessToken);
 router.route("/update-password").post(verifyJWT, updateCurrentPassword);
 router.route("/getcurrentuser").get(verifyJWT, getCurrentuser);
 router.route("/updatecurrentuser").get(verifyJWT, updateAccountDetails);
-router.route("/updateavatar").patch(verifyJWT, upload.single("avatar"),updateAvatarUrl);
+router.route("/updateavatar").post(verifyJWT, upload.single("avatar"), updateAvatarUrl);
 
 export default router;
